@@ -30,7 +30,7 @@ typedef struct {
 	EventList	*events;
 } MidiParser;
 
-bool		parseMidiTrack(unsigned char *buffer, int buffLen, EventList *list);
-MidiParser	*parseMidi(char *path);
+bool		parseMidiTrack(unsigned char *buffer, int buffLen, EventList *list, bool outputDebug);
+MidiParser	*parseMidi(char *path, bool outputDebug);
 
 #endif
