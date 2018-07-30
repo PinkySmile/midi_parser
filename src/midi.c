@@ -12,17 +12,13 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, EventList *list)
 	unsigned long int	totalTime = 0;
 	unsigned long int	len;
 
-	for (int i = 0; i < 12; printf("%x ", buffer[i++]));
+	for (int i = 0; i < 30 && i < buffLen; printf("%#x ", buffer[i++]));
 	printf("\n");
-	if (buffer[buffLen - 2] != 0x2F || buffer[buffLen - 1] != 0x00) {
-		printf("Error: The end of track wasn't found");
-		return (false);
-	}
-	buffLen -= 2;
 	for (int i = 0; i < buffLen; ) {
 		for (deltaTime = 0; buffer[i] & 0x80; deltaTime = (deltaTime << 7) + (buffer[i++] & 0x7F));
 		deltaTime = (deltaTime << 7) + (buffer[i++] & 0x7F);
 		statusByte = buffer[i++];
+		printf("After % 8i ticks: ", deltaTime);
 		if (statusByte == 0xFF) {
 			switch (buffer[i++]) {
 			case 0x00:
@@ -105,6 +101,23 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, EventList *list)
 				}
 				printf("New channel prefix: %i\n", buffer[i++]);
 				break;
+			case 0x21:
+				if (buffer[i++] != 0x01) {
+					printf("Error: Invalid byte found (%#x found but expected 0x01)\n", buffer[i - 1]);
+					return (false);
+				}
+				printf("New MIDI port: %i\n", buffer[i++]);
+				break;
+			case 0X2F:
+				if (buffer[i++] != 0x00) {
+					printf("Error: Invalid byte found (%#x found but expected 0x00)\n", buffer[i - 1]);
+					return (false);
+				} else if (i < buffLen) {
+					printf("Error: Found end of track before the last index\n");
+					return (false);
+				}
+				printf("End of track !\n");
+				return (true);
 			case 0x51:
 				if (buffer[i++] != 0x03) {
 					printf("Error: Invalid byte found (%#x found but expected 0x00)\n", buffer[i - 1]);
@@ -149,13 +162,17 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, EventList *list)
 				printf("Error: Invalid meta event type (%#x)\n", buffer[i - 1]);
 				return (false);
 			}
-		} else if (statusByte >= 0xF0 || statusByte < 0x80) {
+		} else if (statusByte >= 0x80 && statusByte < 0x90) {
+			printf("%s off in channel %i (velocity: %i)\n", getNoteString(buffer[i++]), statusByte / 0x80, buffer[i++]);
+			return (false);
+		} else {
 			printf("Error: Unsupported event (status byte: %#x, delta time: %lu)\n", statusByte, deltaTime);
 			return (false);
 		}
 		totalTime += deltaTime;
-	}
-	return (true);
+	}	
+	printf("Error: The end of track wasn't found");
+	return (false);
 }
 
 MidiParser	*parseMidi(char *path)
@@ -233,6 +250,7 @@ MidiParser	*parseMidi(char *path)
 			free(buffer);
 			return (NULL);
 		}
+		printf(strcmp(type, "MThd") == 0 ? "Found header !\n\n" : "End of track %i\n\n", tracksFound);
 		memset(type, 0, sizeof(type));
 		memset(&length, 0, sizeof(length));
 		memset(buffer, 0, buffLen + 1);
