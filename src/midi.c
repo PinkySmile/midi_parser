@@ -96,11 +96,15 @@ bool	addMidiEvent(EventList *list, EventType type, int timeToAppear, void *infos
 
 void	deleteEventList(EventList *list)
 {
-	for (; list->next; list = list->next);
-	for (; list; list = list->prev) {
+	for (; ; list = list->next) {
 		free(list->data->infos);
 		free(list->data);
-		free(list->next);
+		if (list->prev && list->prev->prev)
+			free(list->prev);
+		if (!list->next) {
+			free(list);
+			break;
+		}
 	}
 }
 
@@ -179,6 +183,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				*(int *)buff = (buffer[i] << 8) + buffer[i+2];
 				if (!addMidiEvent(list, MidiSequenceNumber, deltaTime, buff))
 					return (false);
+				if (list->next)list=list->next;
 				i+=2;
 				break;
 			case 0x01:
@@ -198,6 +203,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				((char *)buff)[len] = 0;
 				if (!addMidiEvent(list, MidiTextEvent, deltaTime, buff))
 					return (false);
+				if (list->next)list=list->next;
 				i += len;
 				break;
 			case 0x02:
@@ -274,6 +280,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				((char *)buff)[len] = 0;
 				if (!addMidiEvent(list, MidiNewLyric, deltaTime, buff))
 					return (false);
+				if (list->next)list=list->next;
 				i += len;
 				break;
 			case 0x06:
@@ -293,6 +300,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				((char *)buff)[len] = 0;
 				if (!addMidiEvent(list, MidiNewMarker, deltaTime, buff))
 					return (false);
+				if (list->next)list=list->next;
 				i += len;
 				break;
 			case 0x07:
@@ -301,6 +309,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				if (!buff) {
 					printf("Error: Cannot alloc %iB\n", (int)len + 1);
 					return (false);
+				if (list->next)list=list->next;
 				}
 				if (outputDebug) {
 					printf("Cue Point: '");
@@ -312,6 +321,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				((char *)buff)[len] = 0;
 				if (!addMidiEvent(list, MidiNewCuePoint, deltaTime, buff))
 					return (false);
+				if (list->next)list=list->next;
 				i += len;
 				break;
 			case 0x20:
@@ -329,6 +339,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				*(int *)buff = buffer[i];
 				if (!addMidiEvent(list, MidiNewChannelPrefix, deltaTime, buff))
 					return (false);
+				if (list->next)list=list->next;
 				i++;
 				break;
 			case 0x21:
@@ -346,6 +357,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				*(int *)buff = buffer[i];
 				if (!addMidiEvent(list, MidiPortChange, deltaTime, buff))
 					return (false);
+				if (list->next)list=list->next;
 				i++;
 				break;
 			case 0X2F:
@@ -374,6 +386,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				*(int *)buff = (buffer[i] << 16) + (buffer[i+1] << 8) + buffer[i+2];
 				if (!addMidiEvent(list, MidiTempoChanged, deltaTime, buff))
 					return (false);
+				if (list->next)list=list->next;
 				i+=3;
 				break;
 			case 0x54:
@@ -399,6 +412,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				((char *)buff)[4] = buffer[i+4];
 				if (!addMidiEvent(list, MidiSMTPEOffset, deltaTime, buff))
 					return (false);
+				if (list->next)list=list->next;
 				i+=5;
 				break;
 			case 0x58:
@@ -418,6 +432,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				((char *)buff)[3] = buffer[i+3];
 				if (!addMidiEvent(list, MidiNewTimeSignature, deltaTime, buff))
 					return (false);
+				if (list->next)list=list->next;
 				i+=4;
 				break;
 			case 0x59:
@@ -436,6 +451,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				((char *)buff)[1] = buffer[i+1];
 				if (!addMidiEvent(list, MidiNewKeySignature, deltaTime, buff))
 					return (false);
+				if (list->next)list=list->next;
 				i+=2;
 				break;
 			case 0x7F:
@@ -456,6 +472,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				((char *)buff)[len] = 0;
 				if (!addMidiEvent(list, MidiNewCuePoint, deltaTime, buff))
 					return (false);
+				if (list->next)list=list->next;
 				i += len;
 				break;
 			default:
@@ -483,6 +500,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 			((char *)buff)[2] = buffer[i+1];
 			if (!addMidiEvent(list, MidiNoteReleased, deltaTime, buff))
 				return (false);
+			if (list->next)list=list->next;
 			i+=2;
 		} else if (statusByte >= 0x90 && statusByte < 0xA0) {
 			if (buffer[i] > 127) {
@@ -505,6 +523,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 			((char *)buff)[2] = buffer[i+1];
 			if (!addMidiEvent(list, MidiNotePressed, deltaTime, buff))
 				return (false);
+			if (list->next)list=list->next;
 			result->nbOfNotes++;
 			i+=2;
 		} else if (statusByte >= 0xA0 && statusByte < 0xB0) {
@@ -528,6 +547,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 			((char *)buff)[2] = buffer[i+1];
 			if (!addMidiEvent(list, MidiPolyphonicPressure, deltaTime, buff))
 				return (false);
+			if (list->next)list=list->next;
 			i+=2;
 		} else if (statusByte >= 0xB0 && statusByte < 0xC0) {
 			if (buffer[i] > 127) {
@@ -550,6 +570,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 			((char *)buff)[2] = buffer[i+1];
 			if (!addMidiEvent(list, MidiControllerValueChanged, deltaTime, buff))
 				return (false);
+			if (list->next)list=list->next;
 			i+=2;
 		} else if (statusByte >= 0xC0 && statusByte < 0xD0) {
 			if (buffer[i] > 127) {
@@ -567,6 +588,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 			((char *)buff)[1] = buffer[i];
 			if (!addMidiEvent(list, MidiProgramChanged, deltaTime, buff))
 				return (false);
+			if (list->next)list=list->next;
 			i++;
 		} else if (statusByte >= 0xD0 && statusByte < 0xE0) {
 			if (buffer[i] > 127) {
@@ -584,6 +606,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 			((char *)buff)[1] = buffer[i];
 			if (!addMidiEvent(list, MidiPressureOfChannelChanged, deltaTime, buff))
 				return (false);
+			if (list->next)list=list->next;
 			i++;
 		} else if (statusByte >= 0xE0 && statusByte < 0xF0) {
 			if (buffer[i] > 127) {
@@ -606,6 +629,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 			((char *)buff)[1] = (buffer[i] << 7) + buffer[i+1];
 			if (!addMidiEvent(list, MidiPitchBendChanged, deltaTime, buff))
 				return (false);
+			if (list->next)list=list->next;
 			i+=2;
 		} else {
 			printf("Error: Unsupported event (status byte: %#x, delta time: %lu) (At pos %i)\n", statusByte, deltaTime, i + posInFile);
@@ -659,6 +683,7 @@ MidiParser	*parseMidi(char *path, bool outputDebug)
 			buffer = realloc(buffer, length + 1);
 			if (!buffer) {
 				printf("Error: Cannot alloc %iB\n", length + 1);
+				deleteMidiParserStruct(&result);
 				free(buffer);
 				return (NULL);
 			}
@@ -669,6 +694,7 @@ MidiParser	*parseMidi(char *path, bool outputDebug)
 		if (strcmp(type, "MThd") == 0) {
 			if (foundHeader) {
 				printf("Error: Two headers were found\n");
+				deleteMidiParserStruct(&result);
 				free(buffer);
 				return (NULL);
 			}
@@ -676,6 +702,7 @@ MidiParser	*parseMidi(char *path, bool outputDebug)
 			result.format = (buffer[0] << 8) + buffer[1];
 			if (result.format > 1) {
 				printf("Error: Unsupported format (%i)\n", result.format);
+				deleteMidiParserStruct(&result);
 				free(buffer);
 				return (NULL);
 			}
@@ -689,9 +716,11 @@ MidiParser	*parseMidi(char *path, bool outputDebug)
 				result.ticks = ((buffer[4] << 9) + (buffer[5] << 1)) >> 1;
 		} else if (!foundHeader) {
 			printf("Error: Tracks starts before headers\n");
+			deleteMidiParserStruct(&result);
 			return (NULL);
 		} else if(tracksFound++ < result.nbOfTracks && !parseMidiTrack(buffer, length, &result.tracks[tracksFound - 1], outputDebug, &result, full - length)) {
 			free(buffer);
+			deleteMidiParserStruct(&result);
 			return (NULL);
 		}
 		if (outputDebug)printf(strcmp(type, "MThd") == 0 ? "Found header !\n\n" : "End of track %i\n\n", tracksFound);
@@ -703,9 +732,11 @@ MidiParser	*parseMidi(char *path, bool outputDebug)
 	if (outputDebug)printf("Read %iB of file\n", full);
 	if (!foundHeader) {
 		printf("Error: No header were found\n");
+		deleteMidiParserStruct(&result);
 		return (NULL);
 	} else if (tracksFound != result.nbOfTracks) {
 		printf("Error: Invalid header: expected %i tracks but found %i\n", result.nbOfTracks, tracksFound);
+		deleteMidiParserStruct(&result);
 		return (NULL);
 	}
 	if (outputDebug) {
