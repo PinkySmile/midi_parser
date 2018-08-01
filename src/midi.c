@@ -97,7 +97,8 @@ bool	addMidiEvent(EventList *list, EventType type, int timeToAppear, void *infos
 void	deleteEventList(EventList *list)
 {
 	for (; ; list = list->next) {
-		free(list->data->infos);
+		if (list->data)
+			free(list->data->infos);
 		free(list->data);
 		if (list->prev && list->prev->prev)
 			free(list->prev);
