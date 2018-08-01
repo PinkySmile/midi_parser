@@ -103,7 +103,8 @@ void	deleteEventList(EventList *list)
 		if (list->prev && list->prev->prev)
 			free(list->prev);
 		if (!list->next) {
-			free(list);
+			if (list->prev)
+				free(list);
 			break;
 		}
 	}
