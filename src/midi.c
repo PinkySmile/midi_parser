@@ -501,7 +501,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 			((char *)buff)[2] = buffer[i+1];
 			if (!addMidiEvent(list, MidiNotePressed, deltaTime, buff))
 				return (false);
-			result->numberOfNotes++;
+			result->nbOfNotes++;
 			i+=2;
 		} else if (statusByte >= 0xA0 && statusByte < 0xB0) {
 			if (buffer[i] > 127) {
@@ -705,7 +705,7 @@ MidiParser	*parseMidi(char *path, bool outputDebug)
 		return (NULL);
 	}
 	if (outputDebug) {
-		printf("%s: format %hi, %hi tracks, %i notes, ", path, result.format, result.nbOfTracks, result.numberOfNotes);
+		printf("%s: format %hi, %hi tracks, %i notes, ", path, result.format, result.nbOfTracks, result.nbOfNotes);
 		if (result.fps) {
 			printf("division: %i FPS and %i ticks/frame\n", result.fps, result.ticks);
 		} else
