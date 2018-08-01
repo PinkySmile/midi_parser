@@ -50,7 +50,7 @@ typedef struct {
 	short		nbOfTracks;
 	char		fps;
 	short		ticks;
-	int		numberOfNotes;
+	int		nbOfNotes;
 	Track		*tracks;
 } MidiParser;
 
