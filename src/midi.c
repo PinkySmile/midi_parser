@@ -84,6 +84,10 @@ bool	addMidiEvent(EventList *list, EventType type, int timeToAppear, void *infos
 		list = list->next;
 	}
 	list->data = malloc(sizeof(*list->data));
+	if (!list->data) {
+		printf("Error: Cannot alloc %iB\n", (int)sizeof(*list->data));
+		return (false);
+	}
 	list->data->timeToAppear = timeToAppear;
 	list->data->infos = infos;
 	list->data->type = type;
