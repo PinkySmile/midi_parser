@@ -115,7 +115,29 @@ void	deleteMidiParserStruct(MidiParser *result)
 	free(result->tracks);
 }
 
-bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outputDebug, MidiParser *result)
+void	showChunk(unsigned char *buffer, int pos, int len, int posInFile)
+{
+	int	realPos = pos;
+
+	posInFile = pos > 15 ? posInFile - 15 : posInFile - pos;
+	pos = pos > 15 ? pos - 15 : 0;
+	for (int j = 0; j < 10 - (posInFile % 10); j++)
+		printf("     ");
+	for (int i = 10 - posInFile % 10; i < 40 && pos + i < len; i += 10) {
+		for (int j = printf("%i", posInFile + i); j < 50; j++)
+			printf(" ");
+	}
+	printf("\n");
+	for (int i = 0; i < 40 && pos + i < len; i++)
+		printf(i + pos == realPos ? "  V  " : ((i + posInFile) % 10 ? "  '  " : "  |  "));
+	printf("\n");
+	for (int i = 0; i < 40 && pos + i < len; i++)
+		for (int j = printf(buffer[i + pos] ? " %#x" : " 0x0", buffer[i + pos]); j < 5; j++)
+			printf(" ");
+	printf("\n");
+}
+
+bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outputDebug, MidiParser *result, int posInFile)
 {
 	void			*buff;
 	unsigned char		statusByte;
@@ -137,17 +159,19 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 			case 0x00:
 				if (buffer[i++] != 0x02) {
 					printf("Error: Invalid byte found (%#x found but expected 0x02)\n", buffer[i - 1]);
+					if (outputDebug)showChunk(buffer, i, buffLen, posInFile + i);
 					return (false);
 				} else if (totalTime > 0) {
 					printf("Error: Cannot add sequence number after non-zero delta times\n");
+					if (outputDebug)showChunk(buffer, i, buffLen, posInFile + i);
 					return (false);
 				}
-				if (outputDebug)printf("Found sequence number: %i\n", (buffer[i] << 8) + buffer[i+2]);
 				buff = malloc(sizeof(int));
 				if (!buff) {
 					printf("Error: Cannot alloc %iB\n", (int)sizeof(int));
 					return (false);
 				}
+				if (outputDebug)printf("Found sequence number: %i", (buffer[i] << 8) + buffer[i+2]);
 				*(int *)buff = (buffer[i] << 8) + buffer[i+2];
 				if (!addMidiEvent(list, MidiSequenceNumber, deltaTime, buff))
 					return (false);
@@ -155,16 +179,16 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				break;
 			case 0x01:
 				for (len = buffer[i] & 0x7F; buffer[i++] & 0x80; len = (len << 7) + (buffer[i] & 0x7F));
-				if (outputDebug) {
-					printf("Text event: '");
-					fflush(stdout);
-					write(1, &buffer[i], len);
-					printf("'\n");
-				}
 				buff = malloc(len + 1);
 				if (!buff) {
 					printf("Error: Cannot alloc %iB\n", (int)len + 1);
 					return (false);
+				}
+				if (outputDebug) {
+					printf("Text event: '");
+					fflush(stdout);
+					write(1, &buffer[i], len);
+					printf("'");
 				}
 				strncpy(buff, (char *)&buffer[i], len);
 				((char *)buff)[len] = 0;
@@ -174,16 +198,16 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				break;
 			case 0x02:
 				for (len = buffer[i] & 0x7F; buffer[i++] & 0x80; len = (len << 7) + (buffer[i] & 0x7F));
-				if (outputDebug) {
-					printf("Copyright to : '");
-					fflush(stdout);
-					write(1, &buffer[i], len);
-					printf("'\n");
-				}
 				buff = malloc(len + 1);
 				if (!buff) {
 					printf("Error: Cannot alloc %iB\n", (int)len + 1);
 					return (false);
+				}
+				if (outputDebug) {
+					printf("Copyright to : '");
+					fflush(stdout);
+					write(1, &buffer[i], len);
+					printf("'");
 				}
 				strncpy(buff, (char *)&buffer[i], len);
 				((char *)buff)[len] = 0;
@@ -193,16 +217,16 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				break;
 			case 0x03:
 				for (len = buffer[i] & 0x7F; buffer[i++] & 0x80; len = (len << 7) + (buffer[i] & 0x7F));
-				if (outputDebug) {
-					printf("Track name: '");
-					fflush(stdout);
-					write(1, &buffer[i], len);
-					printf("'\n");
-				}
 				buff = malloc(len + 1);
 				if (!buff) {
 					printf("Error: Cannot alloc %iB\n", (int)len + 1);
 					return (false);
+				}
+				if (outputDebug) {
+					printf("Track name: '");
+					fflush(stdout);
+					write(1, &buffer[i], len);
+					printf("'");
 				}
 				strncpy(buff, (char *)&buffer[i], len);
 				((char *)buff)[len] = 0;
@@ -212,16 +236,16 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				break;
 			case 0x04:
 				for (len = buffer[i] & 0x7F; buffer[i++] & 0x80; len = (len << 7) + (buffer[i] & 0x7F));
-				if (outputDebug) {
-					printf("Instrument name: '");
-					fflush(stdout);
-					write(1, &buffer[i], len);
-					printf("'\n");
-				}
 				buff = malloc(len + 1);
 				if (!buff) {
 					printf("Error: Cannot alloc %iB\n", (int)len + 1);
 					return (false);
+				}
+				if (outputDebug) {
+					printf("Instrument name: '");
+					fflush(stdout);
+					write(1, &buffer[i], len);
+					printf("'");
 				}
 				strncpy(buff, (char *)&buffer[i], len);
 				((char *)buff)[len] = 0;
@@ -231,16 +255,16 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				break;
 			case 0x05:
 				for (len = buffer[i] & 0x7F; buffer[i++] & 0x80; len = (len << 7) + (buffer[i] & 0x7F));
-				if (outputDebug) {
-					printf("Lyric: '");
-					fflush(stdout);
-					write(1, &buffer[i], len);
-					printf("'\n");
-				}
 				buff = malloc(len + 1);
 				if (!buff) {
 					printf("Error: Cannot alloc %iB\n", (int)len + 1);
 					return (false);
+				}
+				if (outputDebug) {
+					printf("Lyric: '");
+					fflush(stdout);
+					write(1, &buffer[i], len);
+					printf("'");
 				}
 				strncpy(buff, (char *)&buffer[i], len);
 				((char *)buff)[len] = 0;
@@ -250,16 +274,16 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				break;
 			case 0x06:
 				for (len = buffer[i] & 0x7F; buffer[i++] & 0x80; len = (len << 7) + (buffer[i] & 0x7F));
-				if (outputDebug) {
-					printf("Marker: '");
-					fflush(stdout);
-					write(1, &buffer[i], len);
-					printf("'\n");
-				}
 				buff = malloc(len + 1);
 				if (!buff) {
 					printf("Error: Cannot alloc %iB\n", (int)len + 1);
 					return (false);
+				}
+				if (outputDebug) {
+					printf("Marker: '");
+					fflush(stdout);
+					write(1, &buffer[i], len);
+					printf("'");
 				}
 				strncpy(buff, (char *)&buffer[i], len);
 				((char *)buff)[len] = 0;
@@ -269,16 +293,16 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				break;
 			case 0x07:
 				for (len = buffer[i] & 0x7F; buffer[i++] & 0x80; len = (len << 7) + (buffer[i] & 0x7F));
-				if (outputDebug) {
-					printf("Cue Point: '");
-					fflush(stdout);
-					write(1, &buffer[i], len);
-					printf("'\n");
-				}
 				buff = malloc(len + 1);
 				if (!buff) {
 					printf("Error: Cannot alloc %iB\n", (int)len + 1);
 					return (false);
+				}
+				if (outputDebug) {
+					printf("Cue Point: '");
+					fflush(stdout);
+					write(1, &buffer[i], len);
+					printf("'");
 				}
 				strncpy(buff, (char *)&buffer[i], len);
 				((char *)buff)[len] = 0;
@@ -289,14 +313,15 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 			case 0x20:
 				if (buffer[i++] != 0x01) {
 					printf("Error: Invalid byte found (%#x found but expected 0x01)\n", buffer[i - 1]);
+					if (outputDebug)showChunk(buffer, i, buffLen, posInFile + i);
 					return (false);
 				}
-				if (outputDebug)printf("New channel prefix: %i\n", buffer[i]);
 				buff = malloc(sizeof(int));
 				if (!buff) {
 					printf("Error: Cannot alloc %iB\n", (int)sizeof(int));
 					return (false);
 				}
+				if (outputDebug)printf("New channel prefix: %i", buffer[i]);
 				*(int *)buff = buffer[i];
 				if (!addMidiEvent(list, MidiNewChannelPrefix, deltaTime, buff))
 					return (false);
@@ -305,14 +330,15 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 			case 0x21:
 				if (buffer[i++] != 0x01) {
 					printf("Error: Invalid byte found (%#x found but expected 0x01)\n", buffer[i - 1]);
+					if (outputDebug)showChunk(buffer, i, buffLen, posInFile + i);
 					return (false);
 				}
-				if (outputDebug)printf("New MIDI port: %i\n", buffer[i]);
 				buff = malloc(sizeof(int));
 				if (!buff) {
 					printf("Error: Cannot alloc %iB\n", (int)sizeof(int));
 					return (false);
 				}
+				if (outputDebug)printf("New MIDI port: %i", buffer[i]);
 				*(int *)buff = buffer[i];
 				if (!addMidiEvent(list, MidiPortChange, deltaTime, buff))
 					return (false);
@@ -321,9 +347,11 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 			case 0X2F:
 				if (buffer[i++] != 0x00) {
 					printf("Error: Invalid byte found (%#x found but expected 0x00)\n", buffer[i - 1]);
+					if (outputDebug)showChunk(buffer, i, buffLen, posInFile + i);
 					return (false);
 				} else if (i < buffLen) {
 					printf("Error: Found end of track before the last index\n");
+					if (outputDebug)showChunk(buffer, i, buffLen, posInFile + i);
 					return (false);
 				}
 				if (outputDebug)printf("End of track !\n");
@@ -333,12 +361,12 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 					printf("Error: Invalid byte found (%#x found but expected 0x00)\n", buffer[i - 1]);
 					return (false);
 				}
-				if (outputDebug)printf("New tempo: %i\n", (buffer[i] << 16) + (buffer[i+1] << 8) + buffer[i+2]);
 				buff = malloc(sizeof(int));
 				if (!buff) {
 					printf("Error: Cannot alloc %iB\n", (int)sizeof(int));
 					return (false);
 				}
+				if (outputDebug)printf("New tempo: %i", (buffer[i] << 16) + (buffer[i+1] << 8) + buffer[i+2]);
 				*(int *)buff = (buffer[i] << 16) + (buffer[i+1] << 8) + buffer[i+2];
 				if (!addMidiEvent(list, MidiTempoChanged, deltaTime, buff))
 					return (false);
@@ -347,17 +375,19 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 			case 0x54:
 				if (buffer[i++] != 0x05) {
 					printf("Error: Invalid byte found (%#x found but expected 0x05)\n", buffer[i - 1]);
+					if (outputDebug)showChunk(buffer, i, buffLen, posInFile + i);
 					return (false);
 				} else if (totalTime > 0) {
 					printf("Error: Cannot add SMTPE Offset after non-zero delta times\n");
+					if (outputDebug)showChunk(buffer, i, buffLen, posInFile + i);
 					return (false);
 				}
-				if (outputDebug)printf("New offset: %ih %im %is %iframes %ihundreths of a frame", buffer[i], buffer[i+1], buffer[i+2], buffer[i+3], buffer[i+4]);
 				buff = malloc(sizeof(char) * 5);
 				if (!buff) {
 					printf("Error: Cannot alloc %iB\n", (int)sizeof(char) * 5);
 					return (false);
 				}
+				if (outputDebug)printf("New offset: %ih %im %is %iframes %ihundreths of a frame", buffer[i], buffer[i+1], buffer[i+2], buffer[i+3], buffer[i+4]);
 				((char *)buff)[0] = buffer[i];
 				((char *)buff)[1] = buffer[i+1];
 				((char *)buff)[2] = buffer[i+2];
@@ -372,12 +402,12 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 					printf("Error: Invalid byte found (%#x found but expected 0x04)\n", buffer[i - 1]);
 					return (false);
 				}
-				if (outputDebug)printf("Tempo infos: time signature %i/%i 1/4 note is %i ticks %i\n", buffer[i], 2 << (buffer[i+1] - 1), buffer[i+2], buffer[i+3]);
 				buff = malloc(sizeof(char) * 4);
 				if (!buff) {
 					printf("Error: Cannot alloc %iB\n", (int)sizeof(char) * 4);
 					return (false);
 				}
+				if (outputDebug)printf("Tempo infos: time signature %i/%i 1/4 note is %i ticks %i", buffer[i], 2 << (buffer[i+1] - 1), buffer[i+2], buffer[i+3]);
 				((char *)buff)[0] = buffer[i];
 				((char *)buff)[1] = 2 << buffer[i+1];
 				((char *)buff)[2] = buffer[i+2];
@@ -389,14 +419,15 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 			case 0x59:
 				if (buffer[i++] != 0x02) {
 					printf("Error: Invalid byte found (%#x found but expected 0x02)\n", buffer[i - 1]);
+					if (outputDebug)showChunk(buffer, i, buffLen, posInFile + i);
 					return (false);
 				}
-				if (outputDebug)printf("Key signature %i %i\n", buffer[i], buffer[i+1]);
 				buff = malloc(sizeof(char) * 2);
 				if (!buff) {
 					printf("Error: Cannot alloc %iB\n", (int)sizeof(char) * 2);
 					return (false);
 				}
+				if (outputDebug)printf("Key signature %i %i", buffer[i], buffer[i+1]);
 				((char *)buff)[0] = buffer[i];
 				((char *)buff)[1] = buffer[i+1];
 				if (!addMidiEvent(list, MidiNewKeySignature, deltaTime, buff))
@@ -405,16 +436,16 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				break;
 			case 0x7F:
 				for (len = buffer[i] & 0x7F; buffer[i++] & 0x80; len = (len << 7) + (buffer[i] & 0x7F));
-				if (outputDebug) {
-					printf("Sequencer-Specific Meta-event: '");
-					fflush(stdout);
-					write(1, &buffer[i], len);
-					printf("'\n");
-				}
 				buff = malloc(len + 1);
 				if (!buff) {
 					printf("Error: Cannot alloc %iB\n", (int)len + 1);
 					return (false);
+				}
+				if (outputDebug) {
+					printf("Sequencer-Specific Meta-event: '");
+					fflush(stdout);
+					write(1, &buffer[i], len);
+					printf("'");
 				}
 				for (unsigned int j = 0; j < len; j++)
 					((char *)buff)[j] = buffer[i + j];
@@ -430,12 +461,14 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 		} else if (statusByte >= 0x80 && statusByte < 0x90) {
 			if (buffer[i] > 127) {
 				printf("Error: Note out of range (%i out of range 0-127)\n", buffer[i]);
+				if (outputDebug)showChunk(buffer, i, buffLen, posInFile + i);
 				return (false);
 			} else if (buffer[i + 1] > 127) {
 				printf("Error: Velocity out of range (%i out of range 0-127)\n", buffer[i + 1]);
+				if (outputDebug)showChunk(buffer, i, buffLen, posInFile + i);
 				return (false);
 			}
-			if (outputDebug)printf("%s off in channel %i (velocity: %i)\n", getNoteString(buffer[i]), statusByte - 0x80, buffer[i+1]);
+			if (outputDebug)printf("%s off in channel %i (velocity: %i)", getNoteString(buffer[i]), statusByte - 0x80, buffer[i+1]);
 			buff = malloc(sizeof(char) * 3);
 			if (!buff) {
 				printf("Error: Cannot alloc %iB\n", (int)sizeof(char) * 3);
@@ -450,12 +483,14 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 		} else if (statusByte >= 0x90 && statusByte < 0xA0) {
 			if (buffer[i] > 127) {
 				printf("Error: Note out of range (%i out of range 0-127)\n", buffer[i]);
+				if (outputDebug)showChunk(buffer, i, buffLen, posInFile + i);
 				return (false);
 			} else if (buffer[i + 1] > 127) {
 				printf("Error: Velocity out of range (%i out of range 0-127)\n", buffer[i + 1]);
+				if (outputDebug)showChunk(buffer, i, buffLen, posInFile + i);
 				return (false);
 			}
-			if (outputDebug)printf("%s on in channel %i (velocity: %i)\n", getNoteString(buffer[i]), statusByte - 0x90, buffer[i+1]);
+			if (outputDebug)printf("%s on in channel %i (velocity: %i)", getNoteString(buffer[i]), statusByte - 0x90, buffer[i+1]);
 			buff = malloc(sizeof(char) * 3);
 			if (!buff) {
 				printf("Error: Cannot alloc %iB\n", (int)sizeof(char) * 3);
@@ -471,12 +506,14 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 		} else if (statusByte >= 0xA0 && statusByte < 0xB0) {
 			if (buffer[i] > 127) {
 				printf("Error: Note out of range (%i out of range 0-127)\n", buffer[i]);
+				if (outputDebug)showChunk(buffer, i, buffLen, posInFile + i);
 				return (false);
 			} else if (buffer[i + 1] > 127) {
 				printf("Error: Pressure out of range (%i out of range 0-127)\n", buffer[i + 1]);
+				if (outputDebug)showChunk(buffer, i, buffLen, posInFile + i);
 				return (false);
 			}
-			if (outputDebug)printf("Polyphonic pressure on note %s in channel %i (velocity: %i)\n", getNoteString(buffer[i]), statusByte - 0xA0, buffer[i+1]);
+			if (outputDebug)printf("Polyphonic pressure on note %s in channel %i (velocity: %i)", getNoteString(buffer[i]), statusByte - 0xA0, buffer[i+1]);
 			buff = malloc(sizeof(char) * 3);
 			if (!buff) {
 				printf("Error: Cannot alloc %iB\n", (int)sizeof(char) * 3);
@@ -491,12 +528,14 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 		} else if (statusByte >= 0xB0 && statusByte < 0xC0) {
 			if (buffer[i] > 127) {
 				printf("Error: Controller out of range (%i out of range 0-127)\n", buffer[i]);
+				if (outputDebug)showChunk(buffer, i, buffLen, posInFile + i);
 				return (false);
 			} else if (buffer[i + 1] > 127) {
 				printf("Error: Value out of range (%i out of range 0-127)\n", buffer[i + 1]);
+				if (outputDebug)showChunk(buffer, i, buffLen, posInFile + i);
 				return (false);
 			}
-			if (outputDebug)printf("Controller %i in channel %i is now at value %i\n", buffer[i], statusByte - 0xB0, buffer[i+1]);
+			if (outputDebug)printf("Controller %i in channel %i is now at value %i", buffer[i], statusByte - 0xB0, buffer[i+1]);
 			buff = malloc(sizeof(char) * 3);
 			if (!buff) {
 				printf("Error: Cannot alloc %iB\n", (int)sizeof(char) * 3);
@@ -511,9 +550,10 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 		} else if (statusByte >= 0xC0 && statusByte < 0xD0) {
 			if (buffer[i] > 127) {
 				printf("Error: Program out of range (%i out of range 0-127)\n", buffer[i]);
+				if (outputDebug)showChunk(buffer, i, buffLen, posInFile + i);
 				return (false);
 			}
-			if (outputDebug)printf("Changed program of channel %i to %i\n", statusByte - 0xC0, buffer[i]);
+			if (outputDebug)printf("Changed program of channel %i to %i", statusByte - 0xC0, buffer[i]);
 			buff = malloc(sizeof(char) * 2);
 			if (!buff) {
 				printf("Error: Cannot alloc %iB\n", (int)sizeof(char) * 2);
@@ -527,9 +567,10 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 		} else if (statusByte >= 0xD0 && statusByte < 0xE0) {
 			if (buffer[i] > 127) {
 				printf("Error: Pressure out of range (%i out of range 0-127)\n", buffer[i]);
+				if (outputDebug)showChunk(buffer, i, buffLen, posInFile + i);
 				return (false);
 			}
-			if (outputDebug)printf("Changed pressure of all note in channel %i to %i\n", statusByte - 0xC0, buffer[i]);
+			if (outputDebug)printf("Changed pressure of all note in channel %i to %i", statusByte - 0xC0, buffer[i]);
 			buff = malloc(sizeof(char) * 2);
 			if (!buff) {
 				printf("Error: Cannot alloc %iB\n", (int)sizeof(char) * 2);
@@ -543,15 +584,18 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 		} else if (statusByte >= 0xE0 && statusByte < 0xF0) {
 			if (buffer[i] > 127) {
 				printf("Error: Lsb out of range (%i out of range 0-127)\n", buffer[i]);
+				if (outputDebug)showChunk(buffer, i, buffLen, posInFile + i);
 				return (false);
 			} else if (buffer[i] > 127) {
 				printf("Error: Msb out of range (%i out of range 0-127)\n", buffer[i]);
+				if (outputDebug)showChunk(buffer, i, buffLen, posInFile + i);
 				return (false);
 			}
-			if (outputDebug)printf("Changed pitch bend of all note in channel %i to %i\n", statusByte - 0xC0, (buffer[i] << 7) + buffer[i+1]);
+			if (outputDebug)printf("Changed pitch bend of all note in channel %i to %i", statusByte - 0xC0, (buffer[i] << 7) + buffer[i+1]);
 			buff = malloc(sizeof(char) * 2);
 			if (!buff) {
 				printf("Error: Cannot alloc %iB\n", (int)sizeof(char) * 2);
+				if (outputDebug)showChunk(buffer, i, buffLen, posInFile + i);
 				return (false);
 			}
 			((char *)buff)[0] = statusByte - 0xD0;
@@ -560,9 +604,11 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				return (false);
 			i+=2;
 		} else {
-			printf("Error: Unsupported event (status byte: %#x, delta time: %lu)\n", statusByte, deltaTime);
+			printf("Error: Unsupported event (status byte: %#x, delta time: %lu) (At pos %i)\n", statusByte, deltaTime, i + posInFile);
+			if (outputDebug)showChunk(buffer, i, buffLen, posInFile + i);
 			return (false);
 		}
+		if (outputDebug)printf("   New position: %i\n", i + posInFile);
 		totalTime += deltaTime;
 	}	
 	printf("Error: The end of track wasn't found");
@@ -578,7 +624,8 @@ MidiParser	*parseMidi(char *path, bool outputDebug)
 	unsigned char		buff;
 	int			bytes = 0;
 	int			full = 0;
-	int			fd = open(path, O_RDONLY);
+	FILE			*stream = fopen(path, "rb");
+	int			fd = stream ? fileno(stream) : -1;
 	static MidiParser	result;
 	int			tracksFound = 0;
 	bool			foundHeader = false;
@@ -614,12 +661,7 @@ MidiParser	*parseMidi(char *path, bool outputDebug)
 			memset(buffer, 0, length + 1);
 			buffLen = length;
 		}
-		for (int i = 0; i < length; i++){
-			bytes = read(fd, buffer + i, 1);
-			full += 1;
-			if (!bytes)
-				lseek(fd, 0, SEEK_CUR);
-		}
+		full += read(fd, buffer, length);
 		if (strcmp(type, "MThd") == 0) {
 			if (foundHeader) {
 				printf("Error: Two headers were found\n");
@@ -644,7 +686,7 @@ MidiParser	*parseMidi(char *path, bool outputDebug)
 		} else if (!foundHeader) {
 			printf("Error: Tracks starts before headers\n");
 			return (NULL);
-		} else if(tracksFound++ < result.nbOfTracks && !parseMidiTrack(buffer, length, &result.tracks[tracksFound - 1], outputDebug, &result)) {
+		} else if(tracksFound++ < result.nbOfTracks && !parseMidiTrack(buffer, length, &result.tracks[tracksFound - 1], outputDebug, &result, full - length)) {
 			free(buffer);
 			return (NULL);
 		}

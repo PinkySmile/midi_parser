@@ -54,7 +54,7 @@ typedef struct {
 	Track		*tracks;
 } MidiParser;
 
-bool		parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outputDebug, MidiParser *result);
+bool		parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outputDebug, MidiParser *result, int posInFile);
 MidiParser	*parseMidi(char *path, bool outputDebug);
 char		*getNoteString(char note);
 void		deleteEventList(EventList *list);
