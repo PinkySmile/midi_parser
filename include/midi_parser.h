@@ -31,6 +31,12 @@ typedef	struct {
 	void		*infos;
 } Event;
 
+typedef struct {
+	unsigned char	channel;
+	unsigned char	pitch;
+	unsigned char	velocity;
+} MidiNote;
+
 typedef	struct EventList_s EventList;
 struct EventList_s {
 	Event		*data;
