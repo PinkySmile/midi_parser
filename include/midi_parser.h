@@ -31,6 +31,13 @@ typedef	struct {
 	void		*infos;
 } Event;
 
+typedef	struct {
+	unsigned char	numerator;
+	unsigned char	denominator;
+	unsigned char	clockTicksPerMetTick;
+	unsigned char	ticksPerQuarterNote;
+} MidiTimeSignature;
+
 typedef struct {
 	unsigned char	channel;
 	unsigned char	pitch;

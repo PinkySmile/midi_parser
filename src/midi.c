@@ -429,7 +429,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				}
 				if (outputDebug)printf("Tempo infos: time signature %i/%i 1/4 note is %i ticks %i", buffer[i], 2 << (buffer[i+1] - 1), buffer[i+2], buffer[i+3]);
 				((char *)buff)[0] = buffer[i];
-				((char *)buff)[1] = 2 << buffer[i+1];
+				((char *)buff)[1] = buffer[i+1];
 				((char *)buff)[2] = buffer[i+2];
 				((char *)buff)[3] = buffer[i+3];
 				if (!addMidiEvent(list, MidiNewTimeSignature, deltaTime, buff))
