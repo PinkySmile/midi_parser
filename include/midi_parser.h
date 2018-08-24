@@ -44,18 +44,12 @@ typedef struct {
 	unsigned char	velocity;
 } MidiNote;
 
-typedef	struct EventList_s EventList;
-struct EventList_s {
-	Event		*data;
-	EventList	*prev;
-	EventList	*next;
-};
-
 typedef struct {
 	char		*copyright;
 	char		*name;
 	char		*instrumentName;
-	EventList	events;
+	int		nbOfEvents;
+	Event		*events;
 } Track;
 
 typedef struct {
@@ -70,7 +64,6 @@ typedef struct {
 bool		parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outputDebug, MidiParser *result, int posInFile);
 MidiParser	*parseMidi(char *path, bool outputDebug);
 char		*getNoteString(char note);
-void		deleteEventList(EventList *list);
 void		deleteTrack(Track *track);
 void		deleteMidiParserStruct(MidiParser *result);
 
