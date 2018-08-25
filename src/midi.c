@@ -1,6 +1,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <unistd.h>
 #include <string.h>
 #include <stdio.h>
 #include "midi_parser.h"
@@ -9,7 +10,7 @@ char	*getNoteString(char note)
 {
 	static char	buffer[5];
 	int		nbr;
-	
+
 	memset(buffer, 0, sizeof(buffer));
 	switch (note % 12) {
 	case 0:
@@ -107,7 +108,7 @@ int	readVarLenInt(int fd, int *pos)
 char	*readString(int fd, int len)
 {
 	char	*buffer = malloc(len + 1);
-	
+
 	if (!buffer) {
 		printf("Error: Couldn't alloc %iB\n", len + 1);
 		return (NULL);
@@ -780,7 +781,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 		if (outputDebug)
 			printf("   New position: %i\n", i + posInFile);
 		totalTime += deltaTime;
-	}	
+	}
 	printf("Error: The end of track wasn't found (expected EOT before %i but didn't find it after %i)\n", buffLen + posInFile, i + posInFile);
 	return (false);
 }
@@ -799,7 +800,7 @@ MidiParser	*parseMidi(char *path, bool outputDebug)
 	int			tracksFound = 0;
 	bool			foundHeader = false;
 	int			j = 0;
-	
+
 	if (fd < 0)
 		return (NULL);
 	memset(type, 0, sizeof(type));
