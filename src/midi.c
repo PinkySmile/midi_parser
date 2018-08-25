@@ -191,14 +191,17 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 			case 0x02:
 				for (len = buffer[i] & 0x7F; buffer[i++] & 0x80; len = (len << 7) + (buffer[i] & 0x7F));
 				i += len;
+				track->nbOfEvents--;
 				break;
 			case 0x03:
 				for (len = buffer[i] & 0x7F; buffer[i++] & 0x80; len = (len << 7) + (buffer[i] & 0x7F));
 				i += len;
+				track->nbOfEvents--;
 				break;
 			case 0x04:
 				for (len = buffer[i] & 0x7F; buffer[i++] & 0x80; len = (len << 7) + (buffer[i] & 0x7F));
 				i += len;
+				track->nbOfEvents--;
 				break;
 			case 0x05:
 				for (len = buffer[i] & 0x7F; buffer[i++] & 0x80; len = (len << 7) + (buffer[i] & 0x7F));
@@ -243,6 +246,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 					return (false);
 				}
 				i = -1;
+				track->nbOfEvents--;
 				break;
 			case 0x51:
 				if (buffer[i++] != 0x03) {
@@ -289,7 +293,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				break;
 			default:
 				if (outputDebug)
-					printf("Error: Invalid meta event type (%#x)\n", buffer);
+					printf("Error: Invalid meta event type (%#x)\n", buffer[i - 1]);
 				return (false);
 			}
 		} else if (statusByte >= 0x80 && statusByte < 0x90) {
@@ -297,13 +301,11 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				printf("Error: Note out of range (%i out of range 0-127)\n", buffer[i - 1]);
 				if (outputDebug)
 					showChunk(buffer, i, buffLen, posInFile + i);
-				free(buff);
 				return (false);
 			} else if (buffer[i++] > 127) {
 				printf("Error: Velocity out of range (%i out of range 0-127)\n", buffer[i - 1]);
 				if (outputDebug)
 					showChunk(buffer, i, buffLen, posInFile + i);
-				free(buff);
 				return (false);
 			}
 		} else if (statusByte >= 0x90 && statusByte < 0xA0) {
@@ -311,13 +313,11 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				printf("Error: Note out of range (%i out of range 0-127)\n", buffer[i - 1]);
 				if (outputDebug)
 					showChunk(buffer, i, buffLen, posInFile + i);
-				free(buff);
 				return (false);
 			} else if (buffer[i++] > 127) {
 				printf("Error: Velocity out of range (%i out of range 0-127)\n", buffer[i - 1]);
 				if (outputDebug)
 					showChunk(buffer, i, buffLen, posInFile + i);
-				free(buff);
 				return (false);
 			}
 		} else if (statusByte >= 0xA0 && statusByte < 0xB0) {
@@ -325,13 +325,11 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				printf("Error: Note out of range (%i out of range 0-127)\n", buffer[i - 1]);
 				if (outputDebug)
 					showChunk(buffer, i, buffLen, posInFile + i);
-				free(buff);
 				return (false);
 			} else if (buffer[i++] > 127) {
 				printf("Error: Velocity out of range (%i out of range 0-127)\n", buffer[i - 1]);
 				if (outputDebug)
 					showChunk(buffer, i, buffLen, posInFile + i);
-				free(buff);
 				return (false);
 			}
 		} else if (statusByte >= 0xB0 && statusByte < 0xC0) {
@@ -339,13 +337,11 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				printf("Error: Controller out of range (%i out of range 0-127)\n", buffer[i - 1]);
 				if (outputDebug)
 					showChunk(buffer, i, buffLen, posInFile + i);
-				free(buff);
 				return (false);
 			} else if (buffer[i++] > 127) {
 				printf("Error: Value out of range (%i out of range 0-127)\n", buffer[i - 1]);
 				if (outputDebug)
 					showChunk(buffer, i, buffLen, posInFile + i);
-				free(buff);
 				return (false);
 			}
 		} else if (statusByte >= 0xC0 && statusByte < 0xD0) {
@@ -353,7 +349,6 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				printf("Error: Program out of range (%i out of range 0-127)\n", buffer[i - 1]);
 				if (outputDebug)
 					showChunk(buffer, i, buffLen, posInFile + i);
-				free(buff);
 				return (false);
 			}
 		} else if (statusByte >= 0xD0 && statusByte < 0xE0) {
@@ -361,7 +356,6 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				printf("Error: Pressure out of range (%i out of range 0-127)\n", buffer[i - 1]);
 				if (outputDebug)
 					showChunk(buffer, i, buffLen, posInFile + i);
-				free(buff);
 				return (false);
 			}
 		} else if (statusByte >= 0xE0 && statusByte < 0xF0) {
@@ -391,12 +385,10 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 	track->events = malloc(sizeof(*track->events) * track->nbOfEvents);
 	if (!track->events) {
 		printf("Error: Cannot alloc %iB\n", (int)(sizeof(*track->events) * track->nbOfEvents));
-		free(buff);
 		return (false);
 	}
 	memset(track->events, 0, sizeof(*track->events) * track->nbOfEvents);
 	for (i = 0; i < buffLen; ) {
-		currentEvent = &track->events[currentEventId++];
 		for (deltaTime = buffer[i] & 0x7F; buffer[i++] & 0x80; deltaTime = (deltaTime << 7) + (buffer[i] & 0x7F));
 		statusByte = buffer[i++];
 		if (outputDebug)
@@ -413,6 +405,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				*(int *)buff = (buffer[i++] << 8) + buffer[i++];
 				if (outputDebug)
 					printf("Found sequence number: %i", *(int *)buff);
+				currentEvent = &track->events[currentEventId++];
 				currentEvent->type = MidiSequenceNumber;
 				currentEvent->infos = buff;
 				currentEvent->timeToAppear = deltaTime;
@@ -428,6 +421,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				((char *)buff)[len] = 0;
 				if (outputDebug)
 					printf("Text event: '%s'", (char *)buff);
+				currentEvent = &track->events[currentEventId++];
 				currentEvent->type = MidiTextEvent;
 				currentEvent->infos = buff;
 				currentEvent->timeToAppear = deltaTime;
@@ -489,6 +483,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				((char *)buff)[len] = 0;
 				if (outputDebug)
 					printf("Lyric event: '%s'", (char *)buff);
+				currentEvent = &track->events[currentEventId++];
 				currentEvent->type = MidiNewLyric;
 				currentEvent->infos = buff;
 				currentEvent->timeToAppear = deltaTime;
@@ -505,6 +500,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				((char *)buff)[len] = 0;
 				if (outputDebug)
 					printf("Marker: '%s'", (char *)buff);
+				currentEvent = &track->events[currentEventId++];
 				currentEvent->type = MidiNewMarker;
 				currentEvent->infos = buff;
 				currentEvent->timeToAppear = deltaTime;
@@ -521,6 +517,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				((char *)buff)[len] = 0;
 				if (outputDebug)
 					printf("New cue point: '%s'", (char *)buff);
+				currentEvent = &track->events[currentEventId++];
 				currentEvent->type = MidiNewCuePoint;
 				currentEvent->infos = buff;
 				currentEvent->timeToAppear = deltaTime;
@@ -536,6 +533,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				*(char *)buff = buffer[i++];
 				if (outputDebug)
 					printf("New channel prefix: %i", *(int *)buff);
+				currentEvent = &track->events[currentEventId++];
 				currentEvent->type = MidiNewChannelPrefix;
 				currentEvent->infos = buff;
 				currentEvent->timeToAppear = deltaTime;
@@ -550,6 +548,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				*(char *)buff = buffer[i++];
 				if (outputDebug)
 					printf("Midi port changed: %i", *(int *)buff);
+				currentEvent = &track->events[currentEventId++];
 				currentEvent->type = MidiPortChange;
 				currentEvent->infos = buff;
 				currentEvent->timeToAppear = deltaTime;
@@ -579,6 +578,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				*(int *)buff = (buffer[i++] << 16) + (buffer[i++] << 8) + buffer[i++];
 				if (outputDebug)
 					printf("Tempo changed: %i", *(int *)buff);
+				currentEvent = &track->events[currentEventId++];
 				currentEvent->type = MidiTempoChanged;
 				currentEvent->infos = buff;
 				currentEvent->timeToAppear = deltaTime;
@@ -601,6 +601,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 						((char *)buff)[3],
 						((char *)buff)[4]
 					);
+				currentEvent = &track->events[currentEventId++];
 				currentEvent->type = MidiSMTPEOffset;
 				currentEvent->infos = buff;
 				currentEvent->timeToAppear = deltaTime;
@@ -622,6 +623,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 						((unsigned char *)buff)[2],
 						((unsigned char *)buff)[3]
 					);
+				currentEvent = &track->events[currentEventId++];
 				currentEvent->type = MidiNewTimeSignature;
 				currentEvent->infos = buff;
 				currentEvent->timeToAppear = deltaTime;
@@ -641,6 +643,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 						((char *)buff)[0],
 						((char *)buff)[1]
 					);
+				currentEvent = &track->events[currentEventId++];
 				currentEvent->type = MidiNewKeySignature;
 				currentEvent->infos = buff;
 				currentEvent->timeToAppear = deltaTime;
@@ -660,15 +663,12 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 					write(1, buff, len);
 					printf("'");
 				}
+				currentEvent = &track->events[currentEventId++];
 				currentEvent->type = MidiSequencerSpecificEvent;
 				currentEvent->infos = buff;
 				currentEvent->timeToAppear = deltaTime;
 				i += len;
 				break;
-			default:
-				if (outputDebug)
-					printf("Error: Invalid meta event type (%#x)\n", buffer);
-				return (false);
 			}
 		} else if (statusByte >= 0x80 && statusByte < 0x90) {
 			buff = malloc(sizeof(MidiNote));
@@ -681,6 +681,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 			((MidiNote *)buff)->velocity = buffer[i++];
 			if (outputDebug)
 				printf("%s off in channel %i (velocity: %i)", getNoteString(((MidiNote *)buff)->pitch), ((MidiNote *)buff)->channel, ((MidiNote *)buff)->velocity);
+			currentEvent = &track->events[currentEventId++];
 			currentEvent->type = MidiNoteReleased;
 			currentEvent->infos = buff;
 			currentEvent->timeToAppear = deltaTime;
@@ -695,6 +696,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 			((MidiNote *)buff)->velocity = buffer[i++];
 			if (outputDebug)
 				printf("%s on in channel %i (velocity: %i)", getNoteString(((MidiNote *)buff)->pitch), ((MidiNote *)buff)->channel, ((MidiNote *)buff)->velocity);
+			currentEvent = &track->events[currentEventId++];
 			currentEvent->type = MidiNoteReleased;
 			currentEvent->infos = buff;
 			currentEvent->timeToAppear = deltaTime;
@@ -710,6 +712,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 			((MidiNote *)buff)->velocity = buffer[i++];
 			if (outputDebug)
 				printf("Polyphonic pressure on note %s in channel %i (velocity: %i)", getNoteString(((MidiNote *)buff)->pitch), ((MidiNote *)buff)->channel, ((MidiNote *)buff)->velocity);
+			currentEvent = &track->events[currentEventId++];
 			currentEvent->type = MidiPolyphonicPressure;
 			currentEvent->infos = buff;
 			currentEvent->timeToAppear = deltaTime;
@@ -724,6 +727,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 			((char *)buff)[2] = buffer[i++];
 			if (outputDebug)
 				printf("Controller %i in channel %i is now at value %i", ((unsigned char *)buff)[1], ((unsigned char *)buff)[0], ((unsigned char *)buff)[2]);
+			currentEvent = &track->events[currentEventId++];
 			currentEvent->type = MidiControllerValueChanged;
 			currentEvent->infos = buff;
 			currentEvent->timeToAppear = deltaTime;
@@ -737,6 +741,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 			((char *)buff)[1] = buffer[i++];
 			if (outputDebug)
 				printf("Changed program of channel %i to %i", ((unsigned char *)buff)[0], ((unsigned char *)buff)[1]);
+			currentEvent = &track->events[currentEventId++];
 			currentEvent->type = MidiProgramChanged;
 			currentEvent->infos = buff;
 			currentEvent->timeToAppear = deltaTime;
@@ -750,6 +755,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 			((char *)buff)[1] = buffer[i++];
 			if (outputDebug)
 				printf("Changed pressure of all note in channel %i to %i", ((unsigned char *)buff)[0], ((unsigned char *)buff)[1]);
+			currentEvent = &track->events[currentEventId++];
 			currentEvent->type = MidiPressureOfChannelChanged;
 			currentEvent->infos = buff;
 			currentEvent->timeToAppear = deltaTime;
@@ -764,6 +770,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 			((char *)buff)[2] = buffer[i++];
 			if (outputDebug)
 				printf("Changed pitch bend of all note in channel %i to %i %i", ((char *)buff)[0], ((unsigned char *)buff)[1], ((unsigned char *)buff)[2]);
+			currentEvent = &track->events[currentEventId++];
 			currentEvent->type = MidiPitchBendChanged;
 			currentEvent->infos = buff;
 			currentEvent->timeToAppear = deltaTime;
