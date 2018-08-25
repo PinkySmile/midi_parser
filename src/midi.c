@@ -246,7 +246,6 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 					return (false);
 				}
 				i = -1;
-				track->nbOfEvents--;
 				break;
 			case 0x51:
 				if (buffer[i++] != 0x03) {
