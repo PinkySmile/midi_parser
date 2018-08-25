@@ -697,7 +697,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 			if (outputDebug)
 				printf("%s on in channel %i (velocity: %i)", getNoteString(((MidiNote *)buff)->pitch), ((MidiNote *)buff)->channel, ((MidiNote *)buff)->velocity);
 			currentEvent = &track->events[currentEventId++];
-			currentEvent->type = MidiNoteReleased;
+			currentEvent->type = MidiNotePressed;
 			currentEvent->infos = buff;
 			currentEvent->timeToAppear = deltaTime;
 			result->nbOfNotes++;
