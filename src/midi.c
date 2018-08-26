@@ -31,15 +31,16 @@ void	deleteNode(NoteList *node)
 		node->prev->next = node->next;
 		if (node->next)
 			node->next->prev = node->prev;
+		free(node);
 	} else if (node->next) {
 		node->note = node->next->note;
 		node = node->next;
 		node->prev->next = node->next;
 		if (node->next)
 			node->next->prev = node->prev;
+		free(node);
 	} else
 		node->note = NULL;
-	free(node);
 }
 
 char	*getNoteString(char note)
