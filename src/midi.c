@@ -10,7 +10,7 @@ bool	addNode(NoteList *list, Note *data)
 {
 	if (!data)
 		return (false);
-	for (; list->next; list = list->next);
+	for (; list->note && list->next; list = list->next);
 	if (list->note) {
 		list->next = malloc(sizeof(*list->next));
 		if (!list->next) {
@@ -649,6 +649,8 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				}
 				if (outputDebug)
 					printf("End of track !\n");
+				while (list.note)
+					deleteNode(&list);
 				return (true);
 			case 0x51:
 				i++;
@@ -764,7 +766,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 			}
 		} else if (statusByte >= 0x80 && statusByte < 0x90) {
 			if (createNoteArray) {
-				for (node = &list; node && (node->note->pitch != buffer[i] || node->note->channel != statusByte - 0x80); node = node->next);
+				for (node = &list; node && (!node->note || node->note->pitch != buffer[i] || node->note->channel != statusByte - 0x80); node = node->next);
 				if (!node) {
 					printf("Error: Note %s from channel %i is released but has never been pressed\n", getNoteString(buffer[i]), statusByte - 0x80);
 					while (list.note)
@@ -773,7 +775,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				}
 				i++;
 				node->note->fadeOutVelocity = buffer[i++];
-				deleteNode(node);
+				node->note = NULL;
 			} else {
 				buff = malloc(sizeof(MidiNote));
 				if (!buff) {
