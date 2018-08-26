@@ -6,6 +6,42 @@
 #include <stdio.h>
 #include "midi_parser.h"
 
+bool	addNode(NoteList *list, Note *data)
+{
+	if (!data)
+		return (false);
+	for (; list->next; list = list->next);
+	if (list->note) {
+		list->next = malloc(sizeof(*list->next));
+		if (!list->next) {
+			printf("Error: Cannot alloc %iB\n", (int)sizeof(*list->next));
+			return (false);
+		}
+		list->next->prev = list;
+		list->next->next = NULL;
+		list = list->next;
+	}
+	list->note = data;
+	return (true);
+}
+
+void	deleteNode(NoteList *node)
+{
+	if (node->prev) {
+		node->prev->next = node->next;
+		if (node->next)
+			node->next->prev = node->prev;
+	} else if (node->next) {
+		node->note = node->next->note;
+		node = node->next;
+		node->prev->next = node->next;
+		if (node->next)
+			node->next->prev = node->prev;
+	} else
+		node->note = NULL;
+	free(node);
+}
+
 char	*getNoteString(char note)
 {
 	static char	buffer[5];
@@ -78,6 +114,7 @@ void	deleteTrack(Track *track)
 	free(track->instrumentName);
 	for (int i = 0; i < track->nbOfEvents && track->events; i++)
 		free(track->events[i].infos);
+	free(track->notes);
 	free(track->events);
 }
 
@@ -154,15 +191,19 @@ void	showChunk(unsigned char *buffer, int pos, int len, int posInFile)
 	printf("\n");
 }
 
-bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outputDebug, MidiParser *result, int posInFile)
+bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outputDebug, MidiParser *result, int posInFile, bool createNoteArray)
 {
 	void			*buff;
 	unsigned char		statusByte;
 	unsigned int		deltaTime = 0;
 	unsigned long int	totalTime = 0;
 	unsigned int		len;
+	NoteList		list = {NULL, NULL, NULL};
+	NoteList		*node;
+	Note			*noteBuffer;
 	Event			*currentEvent = track->events;
 	int			i = 0;
+	int			currentNote = 0;
 	int			currentEventId = 0;
 
 	for (; i != -1 && i < buffLen; ) {
@@ -308,6 +349,8 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 					showChunk(buffer, i, buffLen, posInFile + i);
 				return (false);
 			}
+			if (createNoteArray)
+				track->nbOfEvents--;
 		} else if (statusByte >= 0x90 && statusByte < 0xA0) {
 			if (buffer[i++] > 127) {
 				printf("Error: Note out of range (%i out of range 0-127)\n", buffer[i - 1]);
@@ -320,6 +363,10 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 					showChunk(buffer, i, buffLen, posInFile + i);
 				return (false);
 			}
+			if (createNoteArray)
+				track->nbOfEvents--;
+			result->nbOfNotes++;
+			track->nbOfNotes++;
 		} else if (statusByte >= 0xA0 && statusByte < 0xB0) {
 			if (buffer[i++] > 127) {
 				printf("Error: Note out of range (%i out of range 0-127)\n", buffer[i - 1]);
@@ -388,8 +435,18 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 		return (false);
 	}
 	memset(track->events, 0, sizeof(*track->events) * track->nbOfEvents);
+	if (createNoteArray) {
+		track->notes = malloc(sizeof(*track->notes) * track->nbOfNotes);
+		if (!track->notes) {
+			printf("Error: Cannot alloc %iB\n", (int)sizeof(*track->notes) * track->nbOfNotes);
+			return (false);
+		}
+		memset(track->notes, 0, sizeof(*track->notes) * track->nbOfNotes);
+	}
 	for (i = 0; i < buffLen; ) {
 		for (deltaTime = buffer[i] & 0x7F; buffer[i++] & 0x80; deltaTime = (deltaTime << 7) + (buffer[i] & 0x7F));
+		for (node = &list; node && node->note; node = node->next)
+			node->note->duration += deltaTime;
 		statusByte = buffer[i++];
 		if (outputDebug)
 			printf("After % 8i ticks: ", deltaTime);
@@ -400,6 +457,8 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				buff = malloc(sizeof(int));
 				if (!buff) {
 					printf("Error: Cannot alloc %iB\n", (int)sizeof(int));
+					while (list.note)
+						deleteNode(&list);
 					return (false);
 				}
 				*(int *)buff = (buffer[i++] << 8) + buffer[i++];
@@ -415,6 +474,8 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				buff = malloc(len + 1);
 				if (!buff) {
 					printf("Error: Cannot alloc %iB\n", (int)len + 1);
+					while (list.note)
+						deleteNode(&list);
 					return (false);
 				}
 				strncpy(buff, (char *)&buffer[i], len);
@@ -432,6 +493,8 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				buff = malloc(len + 1);
 				if (!buff) {
 					printf("Error: Cannot alloc %iB\n", (int)len + 1);
+					while (list.note)
+						deleteNode(&list);
 					return (false);
 				}
 				strncpy(buff, (char *)&buffer[i], len);
@@ -447,6 +510,8 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				buff = malloc(len + 1);
 				if (!buff) {
 					printf("Error: Cannot alloc %iB\n", (int)len + 1);
+					while (list.note)
+						deleteNode(&list);
 					return (false);
 				}
 				strncpy(buff, (char *)&buffer[i], len);
@@ -462,6 +527,8 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				buff = malloc(len + 1);
 				if (!buff) {
 					printf("Error: Cannot alloc %iB\n", (int)len + 1);
+					while (list.note)
+						deleteNode(&list);
 					return (false);
 				}
 				strncpy(buff, (char *)&buffer[i], len);
@@ -477,6 +544,8 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				buff = malloc(len + 1);
 				if (!buff) {
 					printf("Error: Cannot alloc %iB\n", (int)len + 1);
+					while (list.note)
+						deleteNode(&list);
 					return (false);
 				}
 				strncpy(buff, (char *)&buffer[i], len);
@@ -494,6 +563,8 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				buff = malloc(len + 1);
 				if (!buff) {
 					printf("Error: Cannot alloc %iB\n", (int)len + 1);
+					while (list.note)
+						deleteNode(&list);
 					return (false);
 				}
 				strncpy(buff, (char *)&buffer[i], len);
@@ -511,6 +582,8 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				buff = malloc(len + 1);
 				if (!buff) {
 					printf("Error: Cannot alloc %iB\n", (int)len + 1);
+					while (list.note)
+						deleteNode(&list);
 					return (false);
 				}
 				strncpy(buff, (char *)&buffer[i], len);
@@ -528,6 +601,8 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				buff = malloc(sizeof(char));
 				if (!buff) {
 					printf("Error: Cannot alloc %iB\n", (int)sizeof(char));
+					while (list.note)
+						deleteNode(&list);
 					return (false);
 				}
 				*(char *)buff = buffer[i++];
@@ -543,6 +618,8 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				buff = malloc(sizeof(char));
 				if (!buff) {
 					printf("Error: Cannot alloc %iB\n", (int)sizeof(char));
+					while (list.note)
+						deleteNode(&list);
 					return (false);
 				}
 				*(char *)buff = buffer[i++];
@@ -558,11 +635,15 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 					printf("Error: Invalid byte found (%#x found but expected 0x00)\n", buffer[i - 1]);
 					if (outputDebug)
 						showChunk(buffer, i, buffLen, posInFile + i);
+					while (list.note)
+						deleteNode(&list);
 					return (false);
 				} else if (i != buffLen) {
 					printf("Error: Found end of track %s the last index (Found at index %i but expected %i)\n", i > buffLen ? "after" : "before", i, buffLen);
 					if (outputDebug)
 						showChunk(buffer, i, buffLen, posInFile + i);
+					while (list.note)
+						deleteNode(&list);
 					return (false);
 				}
 				if (outputDebug)
@@ -573,6 +654,8 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				buff = malloc(sizeof(int));
 				if (!buff) {
 					printf("Error: Cannot alloc %iB\n", (int)sizeof(int));
+					while (list.note)
+						deleteNode(&list);
 					return (false);
 				}
 				*(int *)buff = (buffer[i++] << 16) + (buffer[i++] << 8) + buffer[i++];
@@ -588,6 +671,8 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				buff = malloc(sizeof(char) * 5);
 				if (!buff) {
 					printf("Error: Cannot alloc %iB\n", (int)sizeof(char) * 5);
+					while (list.note)
+						deleteNode(&list);
 					return (false);
 				}
 				for (int j = 0; j < 5; j++)
@@ -611,6 +696,8 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				buff = malloc(sizeof(char) * 4);
 				if (!buff) {
 					printf("Error: Cannot alloc %iB\n", (int)sizeof(char) * 4);
+					while (list.note)
+						deleteNode(&list);
 					return (false);
 				}
 				for (int j = 0; j < 4; j++)
@@ -633,6 +720,8 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				buff = malloc(sizeof(char) * 2);
 				if (!buff) {
 					printf("Error: Cannot alloc %iB\n", (int)sizeof(char) * 2);
+					while (list.note)
+						deleteNode(&list);
 					return (false);
 				}
 				for (int j = 0; j < 2; j++)
@@ -653,6 +742,8 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				buff = malloc(len + 1);
 				if (!buff) {
 					printf("Error: Cannot alloc %iB\n", (int)len + 1);
+					while (list.note)
+						deleteNode(&list);
 					return (false);
 				}
 				strncpy(buff, (char *)&buffer[i], len);
@@ -671,40 +762,67 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				break;
 			}
 		} else if (statusByte >= 0x80 && statusByte < 0x90) {
-			buff = malloc(sizeof(MidiNote));
-			if (!buff) {
-				printf("Error: Cannot alloc %iB\n", (int)sizeof(MidiNote));
-				return (false);
+			if (createNoteArray) {
+				for (node = &list; node && (node->note->pitch != buffer[i] || node->note->channel != statusByte - 0x80); node = node->next);
+				if (!node) {
+					printf("Error: Note %s from channel %i is released but has never been pressed\n", getNoteString(buffer[i]), statusByte - 0x80);
+					while (list.note)
+						deleteNode(&list);
+					return (false);
+				}
+				i++;
+				node->note->fadeOutVelocity = buffer[i++];
+				deleteNode(node);
+			} else {
+				buff = malloc(sizeof(MidiNote));
+				if (!buff) {
+					printf("Error: Cannot alloc %iB\n", (int)sizeof(MidiNote));
+					while (list.note)
+						deleteNode(&list);
+					return (false);
+				}
+				((MidiNote *)buff)->channel = statusByte - 0x80;
+				((MidiNote *)buff)->pitch = buffer[i++];
+				((MidiNote *)buff)->velocity = buffer[i++];
+				if (outputDebug)
+					printf("%s off in channel %i (velocity: %i)", getNoteString(((MidiNote *)buff)->pitch), ((MidiNote *)buff)->channel, ((MidiNote *)buff)->velocity);
+				currentEvent = &track->events[currentEventId++];
+				currentEvent->type = MidiNoteReleased;
+				currentEvent->infos = buff;
+				currentEvent->timeToAppear = deltaTime;
 			}
-			((MidiNote *)buff)->channel = statusByte - 0x80;
-			((MidiNote *)buff)->pitch = buffer[i++];
-			((MidiNote *)buff)->velocity = buffer[i++];
-			if (outputDebug)
-				printf("%s off in channel %i (velocity: %i)", getNoteString(((MidiNote *)buff)->pitch), ((MidiNote *)buff)->channel, ((MidiNote *)buff)->velocity);
-			currentEvent = &track->events[currentEventId++];
-			currentEvent->type = MidiNoteReleased;
-			currentEvent->infos = buff;
-			currentEvent->timeToAppear = deltaTime;
 		} else if (statusByte >= 0x90 && statusByte < 0xA0) {
-			buff = malloc(sizeof(MidiNote));
-			if (!buff) {
-				printf("Error: Cannot alloc %iB\n", (int)sizeof(MidiNote));
-				return (false);
+			if (createNoteArray) {
+				noteBuffer = &track->notes[currentNote++];
+				noteBuffer->channel = statusByte - 0x90;
+				noteBuffer->timeBeforeAppear = deltaTime;
+				noteBuffer->pitch = buffer[i++];
+				noteBuffer->velocity = buffer[i++];
+				addNode(&list, noteBuffer);
+			} else {
+				buff = malloc(sizeof(MidiNote));
+				if (!buff) {
+					printf("Error: Cannot alloc %iB\n", (int)sizeof(MidiNote));
+					while (list.note)
+						deleteNode(&list);
+					return (false);
+				}
+				((MidiNote *)buff)->channel = statusByte - 0x90;
+				((MidiNote *)buff)->pitch = buffer[i++];
+				((MidiNote *)buff)->velocity = buffer[i++];
+				currentEvent = &track->events[currentEventId++];
+				currentEvent->type = MidiNotePressed;
+				currentEvent->infos = buff;
+				currentEvent->timeToAppear = deltaTime;
 			}
-			((MidiNote *)buff)->channel = statusByte - 0x90;
-			((MidiNote *)buff)->pitch = buffer[i++];
-			((MidiNote *)buff)->velocity = buffer[i++];
 			if (outputDebug)
 				printf("%s on in channel %i (velocity: %i)", getNoteString(((MidiNote *)buff)->pitch), ((MidiNote *)buff)->channel, ((MidiNote *)buff)->velocity);
-			currentEvent = &track->events[currentEventId++];
-			currentEvent->type = MidiNotePressed;
-			currentEvent->infos = buff;
-			currentEvent->timeToAppear = deltaTime;
-			result->nbOfNotes++;
 		} else if (statusByte >= 0xA0 && statusByte < 0xB0) {
 			buff = malloc(sizeof(MidiNote));
 			if (!buff) {
 				printf("Error: Cannot alloc %iB\n", (int)sizeof(MidiNote));
+				while (list.note)
+					deleteNode(&list);
 				return (false);
 			}
 			((MidiNote *)buff)->channel = statusByte - 0xA0;
@@ -720,6 +838,8 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 			buff = malloc(sizeof(char) * 3);
 			if (!buff) {
 				printf("Error: Cannot alloc %iB\n", (int)sizeof(char) * 3);
+				while (list.note)
+					deleteNode(&list);
 				return (false);
 			}
 			((char *)buff)[0] = statusByte - 0xB0;
@@ -735,6 +855,8 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 			buff = malloc(sizeof(char) * 2);
 			if (!buff) {
 				printf("Error: Cannot alloc %iB\n", (int)sizeof(char) * 2);
+				while (list.note)
+					deleteNode(&list);
 				return (false);
 			}
 			((char *)buff)[0] = statusByte - 0xC0;
@@ -749,6 +871,8 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 			buff = malloc(sizeof(char) * 2);
 			if (!buff) {
 				printf("Error: Cannot alloc %iB\n", (int)sizeof(char) * 2);
+				while (list.note)
+					deleteNode(&list);
 				return (false);
 			}
 			((char *)buff)[0] = statusByte - 0xD0;
@@ -763,6 +887,8 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 			buff = malloc(sizeof(char) * 3);
 			if (!buff) {
 				printf("Error: Cannot alloc %iB\n", (int)sizeof(char) * 3);
+				while (list.note)
+					deleteNode(&list);
 				return (false);
 			}
 			((char *)buff)[0] = statusByte - 0xE0;
@@ -776,6 +902,8 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 			currentEvent->timeToAppear = deltaTime;
 		} else {
 			printf("Error: Unsupported event (status byte: %#x, delta time: %u) (At pos %i)\n", statusByte, deltaTime, i + posInFile);
+			while (list.note)
+				deleteNode(&list);
 			return (false);
 		}
 		if (outputDebug)
@@ -783,10 +911,12 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 		totalTime += deltaTime;
 	}
 	printf("Error: The end of track wasn't found (expected EOT before %i but didn't find it after %i)\n", buffLen + posInFile, i + posInFile);
+	while (list.note)
+		deleteNode(&list);
 	return (false);
 }
 
-MidiParser	*parseMidi(char *path, bool outputDebug)
+MidiParser	*parseMidi(char *path, bool outputDebug, bool createNoteArray)
 {
 	char			type[5];
 	int			length = 0;
@@ -811,6 +941,7 @@ MidiParser	*parseMidi(char *path, bool outputDebug)
 		if (strcmp(type, "MThd") && strcmp(type, "MTrk")) {
 			printf("Error: Invalid type '%s'\n", type);
 			deleteMidiParserStruct(&result);
+			close(fd);
 			return (NULL);
 		}
 		for (int i = 0; i < 4; i++) {
@@ -819,6 +950,7 @@ MidiParser	*parseMidi(char *path, bool outputDebug)
 			if (j == -1) {
 				printf("Error: Unexpected <EOF>\n");
 				deleteMidiParserStruct(&result);
+				close(fd);
 				return (NULL);
 			}
 		}
@@ -828,6 +960,7 @@ MidiParser	*parseMidi(char *path, bool outputDebug)
 			if (!buffer) {
 				printf("Error: Cannot alloc %iB\n", length + 1);
 				deleteMidiParserStruct(&result);
+				close(fd);
 				free(buffer);
 				return (NULL);
 			}
@@ -838,6 +971,7 @@ MidiParser	*parseMidi(char *path, bool outputDebug)
 		if (bytes != length) {
 			printf("Error: Unexpected <EOF>\n");
 			deleteMidiParserStruct(&result);
+			close(fd);
 			return (NULL);
 		}
 		if (outputDebug)
@@ -846,10 +980,12 @@ MidiParser	*parseMidi(char *path, bool outputDebug)
 			if (length != 6) {
 				printf("Error: Invalid header: Length is supposed to be 6 but it was %i\n", length);
 				deleteMidiParserStruct(&result);
+				close(fd);
 				return (NULL);
 			} else if (foundHeader) {
 				printf("Error: Two headers were found\n");
 				deleteMidiParserStruct(&result);
+				close(fd);
 				return (NULL);
 			}
 			foundHeader = true;
@@ -870,6 +1006,7 @@ MidiParser	*parseMidi(char *path, bool outputDebug)
 			if (!result.tracks) {
 				printf("Error: Cannot alloc %iB\n", (int)sizeof(*result.tracks) * result.nbOfTracks);
 				deleteMidiParserStruct(&result);
+				close(fd);
 				return (NULL);
 			}
 			memset(result.tracks, 0, sizeof(*result.tracks) * result.nbOfTracks);
@@ -882,8 +1019,9 @@ MidiParser	*parseMidi(char *path, bool outputDebug)
 			printf("Error: Tracks starts before headers\n");
 			deleteMidiParserStruct(&result);
 			return (NULL);
-		} else if (tracksFound++ < result.nbOfTracks && !parseMidiTrack(buffer, length, &result.tracks[tracksFound - 1], outputDebug, &result, full)) {
+		} else if (tracksFound++ < result.nbOfTracks && !parseMidiTrack(buffer, length, &result.tracks[tracksFound - 1], outputDebug, &result, full, createNoteArray)) {
 			deleteMidiParserStruct(&result);
+			close(fd);
 			return (NULL);
 		}
 		full += length;
@@ -897,10 +1035,12 @@ MidiParser	*parseMidi(char *path, bool outputDebug)
 	if (!foundHeader) {
 		printf("Error: No header were found\n");
 		deleteMidiParserStruct(&result);
+		close(fd);
 		return (NULL);
 	} else if (tracksFound != result.nbOfTracks) {
 		printf("Error: Invalid header: expected %i tracks but found %i\n", result.nbOfTracks, tracksFound);
 		deleteMidiParserStruct(&result);
+		close(fd);
 		return (NULL);
 	}
 	if (outputDebug) {

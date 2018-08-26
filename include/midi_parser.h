@@ -44,13 +44,30 @@ typedef struct {
 	unsigned char	velocity;
 } MidiNote;
 
+typedef struct	Note {
+	unsigned	char	pitch;
+	unsigned	char	channel;
+	unsigned	char	velocity;
+	unsigned	char	fadeOutVelocity;
+	unsigned long	int	timeBeforeAppear;
+	unsigned long	int	duration;
+} Note;
+
 typedef struct {
 	char		*copyright;
 	char		*name;
 	char		*instrumentName;
 	int		nbOfEvents;
+	int		nbOfNotes;
+	Note		*notes;
 	Event		*events;
 } Track;
+
+typedef struct	NoteList {
+	Note			*note;
+	struct	NoteList	*next;
+	struct	NoteList	*prev;
+} NoteList;
 
 typedef struct {
 	unsigned short	format;
@@ -61,8 +78,8 @@ typedef struct {
 	Track		*tracks;
 } MidiParser;
 
-bool		parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outputDebug, MidiParser *result, int posInFile);
-MidiParser	*parseMidi(char *path, bool outputDebug);
+bool		parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outputDebug, MidiParser *result, int posInFile, bool createNoteArray);
+MidiParser	*parseMidi(char *path, bool outputDebug, bool createNoteArray);
 char		*getNoteString(char note);
 void		deleteTrack(Track *track);
 void		deleteMidiParserStruct(MidiParser *result);
