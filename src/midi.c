@@ -771,8 +771,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 						deleteNode(&list);
 					return (false);
 				}
-				i++;
-				node->note->fadeOutVelocity = buffer[i++];
+				node->note->fadeOutVelocity = buffer[i + 1];
 				node->note = NULL;
 			}
 			buff = malloc(sizeof(MidiNote));
@@ -796,8 +795,8 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				noteBuffer = &track->notes[currentNote++];
 				noteBuffer->channel = statusByte - 0x90;
 				noteBuffer->timeBeforeAppear = deltaTime;
-				noteBuffer->pitch = buffer[i++];
-				noteBuffer->velocity = buffer[i++];
+				noteBuffer->pitch = buffer[i];
+				noteBuffer->velocity = buffer[i + 1];
 				addNode(&list, noteBuffer);
 			}
 			buff = malloc(sizeof(MidiNote));
