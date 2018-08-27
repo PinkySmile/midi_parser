@@ -350,8 +350,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 					showChunk(buffer, i, buffLen, posInFile + i);
 				return (false);
 			}
-			if (createNoteArray)
-				track->nbOfEvents--;
+			
 		} else if (statusByte >= 0x90 && statusByte < 0xA0) {
 			if (buffer[i++] > 127) {
 				printf("Error: Note out of range (%i out of range 0-127)\n", buffer[i - 1]);
@@ -364,8 +363,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 					showChunk(buffer, i, buffLen, posInFile + i);
 				return (false);
 			}
-			if (createNoteArray)
-				track->nbOfEvents--;
+			
 			result->nbOfNotes++;
 			track->nbOfNotes++;
 		} else if (statusByte >= 0xA0 && statusByte < 0xB0) {
@@ -776,24 +774,23 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				i++;
 				node->note->fadeOutVelocity = buffer[i++];
 				node->note = NULL;
-			} else {
-				buff = malloc(sizeof(MidiNote));
-				if (!buff) {
-					printf("Error: Cannot alloc %iB\n", (int)sizeof(MidiNote));
-					while (list.note)
-						deleteNode(&list);
-					return (false);
-				}
-				((MidiNote *)buff)->channel = statusByte - 0x80;
-				((MidiNote *)buff)->pitch = buffer[i++];
-				((MidiNote *)buff)->velocity = buffer[i++];
-				if (outputDebug)
-					printf("%s off in channel %i (velocity: %i)", getNoteString(((MidiNote *)buff)->pitch), ((MidiNote *)buff)->channel, ((MidiNote *)buff)->velocity);
-				currentEvent = &track->events[currentEventId++];
-				currentEvent->type = MidiNoteReleased;
-				currentEvent->infos = buff;
-				currentEvent->timeToAppear = deltaTime;
 			}
+			buff = malloc(sizeof(MidiNote));
+			if (!buff) {
+				printf("Error: Cannot alloc %iB\n", (int)sizeof(MidiNote));
+				while (list.note)
+					deleteNode(&list);
+				return (false);
+			}
+			((MidiNote *)buff)->channel = statusByte - 0x80;
+			((MidiNote *)buff)->pitch = buffer[i++];
+			((MidiNote *)buff)->velocity = buffer[i++];
+			if (outputDebug)
+				printf("%s off in channel %i (velocity: %i)", getNoteString(((MidiNote *)buff)->pitch), ((MidiNote *)buff)->channel, ((MidiNote *)buff)->velocity);
+			currentEvent = &track->events[currentEventId++];
+			currentEvent->type = MidiNoteReleased;
+			currentEvent->infos = buff;
+			currentEvent->timeToAppear = deltaTime;
 		} else if (statusByte >= 0x90 && statusByte < 0xA0) {
 			if (createNoteArray) {
 				noteBuffer = &track->notes[currentNote++];
@@ -802,22 +799,21 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 				noteBuffer->pitch = buffer[i++];
 				noteBuffer->velocity = buffer[i++];
 				addNode(&list, noteBuffer);
-			} else {
-				buff = malloc(sizeof(MidiNote));
-				if (!buff) {
-					printf("Error: Cannot alloc %iB\n", (int)sizeof(MidiNote));
-					while (list.note)
-						deleteNode(&list);
-					return (false);
-				}
-				((MidiNote *)buff)->channel = statusByte - 0x90;
-				((MidiNote *)buff)->pitch = buffer[i++];
-				((MidiNote *)buff)->velocity = buffer[i++];
-				currentEvent = &track->events[currentEventId++];
-				currentEvent->type = MidiNotePressed;
-				currentEvent->infos = buff;
-				currentEvent->timeToAppear = deltaTime;
 			}
+			buff = malloc(sizeof(MidiNote));
+			if (!buff) {
+				printf("Error: Cannot alloc %iB\n", (int)sizeof(MidiNote));
+				while (list.note)
+					deleteNode(&list);
+				return (false);
+			}
+			((MidiNote *)buff)->channel = statusByte - 0x90;
+			((MidiNote *)buff)->pitch = buffer[i++];
+			((MidiNote *)buff)->velocity = buffer[i++];
+			currentEvent = &track->events[currentEventId++];
+			currentEvent->type = MidiNotePressed;
+			currentEvent->infos = buff;
+			currentEvent->timeToAppear = deltaTime;
 			if (outputDebug)
 				printf("%s on in channel %i (velocity: %i)", getNoteString(((MidiNote *)buff)->pitch), ((MidiNote *)buff)->channel, ((MidiNote *)buff)->velocity);
 		} else if (statusByte >= 0xA0 && statusByte < 0xB0) {
