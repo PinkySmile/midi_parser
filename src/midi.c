@@ -444,8 +444,9 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 	}
 	for (i = 0; i < buffLen; ) {
 		for (deltaTime = buffer[i] & 0x7F; buffer[i++] & 0x80; deltaTime = (deltaTime << 7) + (buffer[i] & 0x7F));
-		for (node = &list; node && node->note; node = node->next)
-			node->note->duration += deltaTime;
+		for (node = &list; node; node = node->next)
+			if (node->note)
+				node->note->duration += deltaTime;
 		statusByte = buffer[i++];
 		if (outputDebug)
 			printf("After % 8i ticks: ", deltaTime);
