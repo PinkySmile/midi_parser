@@ -795,7 +795,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 			if (createNoteArray) {
 				noteBuffer = &track->notes[currentNote++];
 				noteBuffer->channel = statusByte - 0x90;
-				noteBuffer->timeBeforeAppear = deltaTime;
+				noteBuffer->timeBeforeAppear = totalTime + deltaTime;
 				noteBuffer->pitch = buffer[i];
 				noteBuffer->velocity = buffer[i + 1];
 				addNode(&list, noteBuffer);
