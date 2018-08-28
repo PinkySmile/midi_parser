@@ -444,6 +444,7 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 		}
 		memset(track->notes, 0, sizeof(*track->notes) * track->nbOfNotes);
 	}
+	totalTime = 0;
 	for (i = 0; i < buffLen; ) {
 		for (deltaTime = buffer[i] & 0x7F; buffer[i++] & 0x80; deltaTime = (deltaTime << 7) + (buffer[i] & 0x7F));
 		for (node = &list; node && node->note; node = node->next)
