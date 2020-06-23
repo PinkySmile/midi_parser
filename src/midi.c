@@ -194,23 +194,29 @@ void	showChunk(unsigned char *buffer, int pos, int len, int posInFile)
 
 bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outputDebug, MidiParser *result, int posInFile, bool createNoteArray)
 {
-	void			*buff;
-	unsigned char		statusByte;
-	unsigned int		deltaTime = 0;
-	unsigned long int	totalTime = 0;
-	unsigned int		len;
-	NoteList		list = {NULL, NULL, NULL};
-	NoteList		*node;
-	Note			*noteBuffer;
-	Event			*currentEvent = track->events;
-	int			i = 0;
-	int			currentNote = 0;
-	int			currentEventId = 0;
+	void		*buff;
+	unsigned char	byte;
+	unsigned char	statusByte;
+	unsigned int	deltaTime = 0;
+	unsigned long	totalTime = 0;
+	unsigned int	len;
+	NoteList	list = {NULL, NULL, NULL};
+	NoteList	*node;
+	Note		*noteBuffer;
+	Event		*currentEvent = track->events;
+	int		i = 0;
+	int		currentNote = 0;
+	int		currentEventId = 0;
 
 	for (; i != -1 && i < buffLen; ) {
 		++track->nbOfEvents;
 		for (deltaTime = buffer[i] & 0x7F; buffer[i++] & 0x80; deltaTime = (deltaTime << 7) + (buffer[i] & 0x7F));
-		statusByte = buffer[i++];
+		byte = buffer[i];
+
+		if (byte & 0x80) {
+			statusByte = byte;
+			i++;
+		}
 		if (outputDebug)
 			printf("After % 8i ticks: ", deltaTime);
 		if (statusByte == 0xFF) {
@@ -416,11 +422,14 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 					showChunk(buffer, i, buffLen, posInFile + i);
 				return (false);
 			}
+		} else if (statusByte == 0xF0 || statusByte == 0xF7) {
+			for (len = buffer[i] & 0x7F; buffer[i++] & 0x80; len = (len << 7) + (buffer[i] & 0x7F));
+			i += len;
 		} else {
-			printf("Error: Unsupported event (status byte: %#x, delta time: %u) (At pos %i)\n", statusByte, deltaTime, i + posInFile);
+			printf("Warning: Unsupported event (status byte: %#x, delta time: %u) (At pos %i)\n", statusByte, deltaTime, i + posInFile);
 			if (outputDebug)
 				showChunk(buffer, i, buffLen, posInFile + i);
-			return (false);
+			i++;
 		}
 		if (outputDebug)
 			printf("   New position: %i\n", i + posInFile);
@@ -448,7 +457,12 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 		for (node = &list; node; node = node->next)
 			if (node->note)
 				node->note->duration += deltaTime;
-		statusByte = buffer[i++];
+		byte = buffer[i];
+
+		if (byte & 0x80) {
+			statusByte = byte;
+			i++;
+		}
 		if (outputDebug)
 			printf("After % 8i ticks: ", deltaTime);
 		if (statusByte == 0xFF) {
@@ -900,11 +914,12 @@ bool	parseMidiTrack(unsigned char *buffer, int buffLen, Track *track, bool outpu
 			currentEvent->type = MidiPitchBendChanged;
 			currentEvent->infos = buff;
 			currentEvent->timeToAppear = deltaTime;
+		} else if (statusByte == 0xF0 || statusByte == 0xF7) {
+			for (len = buffer[i] & 0x7F; buffer[i++] & 0x80; len = (len << 7) + (buffer[i] & 0x7F));
+			i += len;
 		} else {
-			printf("Error: Unsupported event (status byte: %#x, delta time: %u) (At pos %i)\n", statusByte, deltaTime, i + posInFile);
-			while (list.note)
-				deleteNode(&list);
-			return (false);
+			printf("Warning: Unsupported event (status byte: %#x, delta time: %u) (At pos %i)\n", statusByte, deltaTime, i + posInFile);
+			i++;
 		}
 		if (outputDebug)
 			printf("   New position: %i\n", i + posInFile);

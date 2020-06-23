@@ -1,4 +1,4 @@
-NAME =	midiparser.a
+NAME =	libmidiparser.a
 
 SRC = 	midi.c			\
 
